@@ -118,13 +118,13 @@ func preProcess(series string, window int) map[string]int {
     return words
 }
 
-func compare(series string, window int, training, testing map[string]int) []float64 {
+func compare(series string, window int, training, testing map[string]int, scale float64) []float64 {
     deltas := make([]float64, len(series) - window)
 
     for offset := 0; offset < len(series) - window; offset++ {
         word := series[offset:offset+window]
 
-        deltas[offset] = math.Abs(float64(testing[word]) - float64(training[word]))
+        deltas[offset] = math.Abs(float64(testing[word]) - (scale * float64(training[word])))
     }
 
     return deltas
@@ -171,7 +171,8 @@ func main() {
     trwords := preProcess(tr, tznWindow)
     txwords := preProcess(tx, tznWindow)
 
-    series["deltas"] = compare(tx, tznWindow, trwords, txwords)
+    scale := float64(len(tx) - tznWindow + 1) / float64(len(tr)  - tznWindow + 1)
+    series["deltas"] = compare(tx, tznWindow, trwords, txwords, scale)
 
     fmt.Println("Deltas:", series["deltas"])
     fmt.Println("Tr: ", trwords)
