@@ -124,7 +124,12 @@ func compare(series string, window int, training, testing map[string]int, scale 
     for offset := 0; offset < len(series) - window; offset++ {
         word := series[offset:offset+window]
 
-        deltas[offset] = math.Abs(float64(testing[word]) - (scale * float64(training[word])))
+        delta := math.Abs(float64(testing[word]) - (scale * float64(training[word])))
+
+        fmt.Printf("%s found %v times in 'testing' data, %v times in 'training' data (%v scaled %0.4fx): %v\n",
+            word, testing[word], (scale * float64(training[word])), training[word], scale, delta)
+
+        deltas[offset] = delta
     }
 
     return deltas
@@ -149,7 +154,7 @@ func main() {
         return
     }
 
-    tznWindow := 8
+    tznWindow := 6
     paaWindow := 30
     alphabetLength := 4
 
@@ -174,9 +179,9 @@ func main() {
     scale := float64(len(tx) - tznWindow + 1) / float64(len(tr)  - tznWindow + 1)
     series["deltas"] = compare(tx, tznWindow, trwords, txwords, scale)
 
-    fmt.Println("Deltas:", series["deltas"])
-    fmt.Println("Tr: ", trwords)
-    fmt.Println("Tx: ", txwords)
+    //fmt.Println("Deltas:", series["deltas"])
+    //fmt.Println("Tr: ", trwords)
+    //fmt.Println("Tx: ", txwords)
 
     d, e := json.Marshal(series)
 
