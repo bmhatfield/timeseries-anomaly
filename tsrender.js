@@ -11,14 +11,21 @@ function makeWindowedSeries(list, windw){
 }
 
 $(document).ready(function(){
-    $.plot($("#placeholder"),
+    var trainingpoints = makeWindowedSeries(series.trainingnpaa, paaWindow);
+    var testingpoints = makeWindowedSeries(series.anomalynpaa, paaWindow);
+
+    $.plot($("#discrete"),
         [
-            makeSeries(series.normal),
-            {data: makeWindowedSeries(series.npaa, paaWindow), lines: {steps: true}},
-            [[0, series.breakpoints[0]], [rawLength-1, series.breakpoints[0]]],
-            [[0, series.breakpoints[1]], [rawLength-1, series.breakpoints[1]]],
-            [[0, series.breakpoints[2]], [rawLength-1, series.breakpoints[2]]],
-            [[0, series.breakpoints[3]], [rawLength-1, series.breakpoints[3]]]
+            {data: trainingpoints, lines: {steps: true}},
+            {data: testingpoints, lines: {steps: true}},
+            {data: [[0, series.breakpoints[0]], [trainingLen-1, series.breakpoints[0]]], color: 'black', shadowSize: 0},
+            {data: [[0, series.breakpoints[1]], [trainingLen-1, series.breakpoints[1]]], color: 'black', shadowSize: 0},
+            {data: [[0, series.breakpoints[2]], [trainingLen-1, series.breakpoints[2]]], color: 'black', shadowSize: 0},
+            {data: [[0, series.breakpoints[3]], [trainingLen-1, series.breakpoints[3]]], color: 'black', shadowSize: 0}
         ],
-        {series: {lines: {show: true}}});
+        { series: {lines: {show: true}} });
+
+    $.plot($("#surprise"),
+        [ {data: makeWindowedSeries(series.deltas, paaWindow), lines: {steps: true}} ],
+        { xaxis: {min: 0, max: trainingpoints.length * paaWindow}});
 });
