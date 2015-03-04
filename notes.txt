@@ -1,0 +1,9 @@
+Time Series: T (m values)
+Subsequence: C (n of m values) (p: index of value)
+
+Distance: R = abs(C-M) (M is alternative subsequence)
+
+Self match: if |p-q| > n (p is starting position of C, q is starting position of M, n is length of subsequence)
+
+Discord: Of time series T, subsequence D (length n), start index of l, is the discord if D has the largest distance to the non-self-match.
+

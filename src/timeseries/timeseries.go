@@ -75,9 +75,7 @@ func (ts *TimeSeries) PAA(window int) (*TimeSeries) {
 
 // Computes a dimensionality-reduced symbolic approximation of the timeseries.
 // Dimensionality reduction is performed by PAA.
-func (ts *TimeSeries) SAX(window, alphabetSize int) (string) {
-    var sax string
-
+func (ts *TimeSeries) SAX(window, alphabetSize int) (sax string) {
     topBreakpoint := alphabetSize - 2
     breakpoints := Breakpoints[alphabetSize]
 

@@ -1,114 +1,53 @@
-package main
+package anomaly
 
-import "fmt"
+//import "log"
 import "math"
-import "io/ioutil"
-import "encoding/json"
 
 import "timeseries"
 
-func sineWave(time, frequency, amplitude float64) float64 {
-    return amplitude * math.Sin(frequency * time)
+type ExtractedTimeSeries struct {
+    TimeSeries timeseries.TimeSeries
+
+    FeatureLength int
+    WordLength int
+    AlphabetSize int
+
+    Words []string
+    WordCounts map[string]int
 }
 
-func loadJSON(filename string, destination *timeseries.TimeSeries) error {
-    file, err := ioutil.ReadFile(filename)
-
-    if err != nil {
-        fmt.Println("Error reading file:", filename, err)
-        return err
-    }
-
-    err = json.Unmarshal(file, destination)
-
-    if err != nil {
-        fmt.Println("Unable to parse JSON:", err)
-        return err
-    }
-
-    return err
+func New(timeseries timeseries.TimeSeries) (*ExtractedTimeSeries) {
+    es := &ExtractedTimeSeries{TimeSeries: timeseries}
+    es.Words = make([]string, 0)
+    es.WordCounts = make(map[string]int)
+    return es
 }
 
-func preProcess(series string, window int) map[string]int {
-    words := make(map[string]int)
+func (e *ExtractedTimeSeries) ExtractWords() {
+    // Iterate over the raw timeseries, extracting normalized words and appending
+    // them to the array.
+    dimensionLength := e.FeatureLength * e.WordLength
 
-    for offset := 0; offset < len(series) - window; offset++ {
-        word := series[offset:offset+window]
-        words[word]++
+    for i := 0; i < e.TimeSeries.Length() / dimensionLength; i++ {
+        offset := i * dimensionLength
+
+        ts := timeseries.TimeSeries(e.TimeSeries[offset:offset+dimensionLength])
+
+        word := ts.SAX(e.FeatureLength, e.AlphabetSize)
+
+        e.Words = append(e.Words, word)
+        e.WordCounts[word] += 1
     }
-
-    return words
 }
 
-func compare(series string, window int, training, testing map[string]int, scale float64) []float64 {
-    deltas := make([]float64, len(series) - window)
+func (e *ExtractedTimeSeries) CompareTo(testing *ExtractedTimeSeries) (surprise []float64) {
+    wordDataPoints := e.FeatureLength * e.WordLength
+    scaleFactor := float64(len(testing.TimeSeries) - wordDataPoints + 1) / float64(len(e.TimeSeries) - wordDataPoints + 1)
 
-    for offset := 0; offset < len(series) - window; offset++ {
-        word := series[offset:offset+window]
-
-        delta := math.Abs(float64(testing[word]) - (scale * float64(training[word])))
-
-        fmt.Printf("%s found %v times in 'testing' data, %v times in 'training' data (%v scaled %0.4fx): %v\n",
-            word, testing[word], (scale * float64(training[word])), training[word], scale, delta)
-
-        deltas[offset] = delta
+    for _, word := range testing.Words {
+        variance := math.Abs(float64(testing.WordCounts[word]) - (scaleFactor * float64(e.WordCounts[word])))
+        surprise = append(surprise, variance)
     }
 
-    return deltas
-}
-
-var trainingData timeseries.TimeSeries
-var anomalyData timeseries.TimeSeries
-
-func main() {
-    series := make(map[string][]float64)
-    tunables := make(map[string]float64)
-
-    var err error
-    err = loadJSON("trainingdata.json", &trainingData)
-
-    if err != nil {
-        return
-    }
-
-    err = loadJSON("anomalydata.json", &anomalyData)
-
-    if err != nil {
-        return
-    }
-
-    tunables["tznWindow"] = 6
-    tunables["paaWindow"] = 30
-    tunables["alphabetLength"] = 4
-
-    series["training"] = trainingData
-    series["trainingpaa"] = trainingData.Paa(tunables["paaWindow"])
-    series["trainingnormal"] = *trainingData.Normalize()
-    series["trainingnpaa"] = trainingData.Normalize().Paa(tunables["paaWindow"])
-
-    series["anomaly"] = anomalyData
-    series["anomalypaa"] = anomalyData.Paa(tunables["paaWindow"])
-    series["anomalynormal"] = *anomalyData.Normalize()
-    series["anomalynpaa"] = anomalyData.Normalize().Paa(tunables["paaWindow"])
-
-    series["breakpoints"] = timeseries.Breakpoints[tunables["alphabetLength"]]
-
-    tr := string(trainingData.Sax(tunables["paaWindow"], tunables["alphabetLength"]))
-    tx := string(anomalyData.Sax(tunables["paaWindow"], tunables["alphabetLength"]))
-
-    trwords := preProcess(tr, tunables["tznWindow"])
-    txwords := preProcess(tx, tunables["tznWindow"])
-
-    scale := float64(len(tx) - tunables["tznWindow"] + 1) / float64(len(tr)  - tunables["tznWindow"] + 1)
-    series["deltas"] = compare(tx, tunables["tznWindow"], trwords, txwords, scale)
-
-    seriesRawJson, e := json.MarshalIndent(series, "", "  ")
-    tunablesRawJson, e := json.MarshalIndent(tunables, "", "  ")
-
-    if e == nil {
-        contents := []byte(fmt.Sprintf("var series = %s;\n", seriesRawJson))
-        contents = append(contents, []byte(fmt.Sprintf("var tunables = %s;\n", tunablesRawJson))...)
-
-        ioutil.WriteFile("tsdata.js", contents, 0644)
-    }
+    return surprise
 }
